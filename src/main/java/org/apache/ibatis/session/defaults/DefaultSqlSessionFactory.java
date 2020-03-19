@@ -1,35 +1,37 @@
 /**
- * Copyright 2009-2015 the original author or authors.
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- * <p>
- * http://www.apache.org/licenses/LICENSE-2.0
- * <p>
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *    Copyright 2009-2019 the original author or authors.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
  */
 package org.apache.ibatis.session.defaults;
+
+import java.sql.Connection;
+import java.sql.SQLException;
 
 import org.apache.ibatis.exceptions.ExceptionFactory;
 import org.apache.ibatis.executor.ErrorContext;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.mapping.Environment;
-import org.apache.ibatis.session.*;
+import org.apache.ibatis.session.Configuration;
+import org.apache.ibatis.session.ExecutorType;
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.apache.ibatis.session.TransactionIsolationLevel;
 import org.apache.ibatis.transaction.Transaction;
 import org.apache.ibatis.transaction.TransactionFactory;
 import org.apache.ibatis.transaction.managed.ManagedTransactionFactory;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-
 /**
- * 默认 SqlSessionFactory 实现类
- *
  * @author Clinton Begin
  */
 public class DefaultSqlSessionFactory implements SqlSessionFactory {
@@ -42,6 +44,9 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory {
 
     @Override
     public SqlSession openSession() {
+        // 这个会话里面，需要包含一个 Executor 用来执行 SQL。Executor 又要指定事务类型和执行器的类型。
+        // 所以我们会先从 Configuration 里面拿到 Enviroment，Enviroment 里面就有事务工厂。
+        // 一般configuration.getDefaultExecutorType()返回的是ExecutorType.SIMPLE
         return openSessionFromDataSource(configuration.getDefaultExecutorType(), null, false);
     }
 
@@ -88,14 +93,14 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory {
     private SqlSession openSessionFromDataSource(ExecutorType execType, TransactionIsolationLevel level, boolean autoCommit) {
         Transaction tx = null;
         try {
-            // 获得 Environment 对象
+            // 从Configuration中获得 Environment 对象
             final Environment environment = configuration.getEnvironment();
-            // 创建 Transaction 对象
+            // 从environment获取到事务工厂
             final TransactionFactory transactionFactory = getTransactionFactoryFromEnvironment(environment);
+            // 根据数据源，事务隔离级别，是否自动提交构建事务
             tx = transactionFactory.newTransaction(environment.getDataSource(), level, autoCommit);
-            // 创建 Executor 对象
+            // 重点！！！构建执行器---根据事务和执行器类型，一般是ExecutorType.SIMPLE
             final Executor executor = configuration.newExecutor(tx, execType);
-            // 创建 DefaultSqlSession 对象
             return new DefaultSqlSession(configuration, executor, autoCommit);
         } catch (Exception e) {
             // 如果发生异常，则关闭 Transaction 对象
@@ -122,7 +127,7 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory {
             // 创建 Transaction 对象
             final TransactionFactory transactionFactory = getTransactionFactoryFromEnvironment(environment);
             final Transaction tx = transactionFactory.newTransaction(connection);
-            // 创建 Executor 对象
+            // 创建 Transaction 对象
             final Executor executor = configuration.newExecutor(tx, execType);
             // 创建 DefaultSqlSession 对象
             return new DefaultSqlSession(configuration, executor, autoCommit);

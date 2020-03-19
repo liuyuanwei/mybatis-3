@@ -20,9 +20,9 @@ import java.sql.Connection;
 /**
  * Creates an {@link SqlSession} out of a connection or a DataSource
  *
- * {@link SqlSession} 工厂接口
- *
  * @author Clinton Begin
+ * SqlSession的工厂接口，默认实现类是DefaultSqlSessionFactory
+ * 定义了 #openSession(...) 和 #getConfiguration() 两类方法。
  */
 public interface SqlSessionFactory {
 
